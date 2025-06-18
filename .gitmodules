@@ -13,3 +13,9 @@
 [submodule "rpico-servo"]
 	path = rpico-servo
 	url = git@github.com:hirobon1690/rpico-servo.git
+[submodule "rpico-gpio"]
+	path = rpico-gpio
+	url = git@github.com:hirobon1690/rpico-gpio.git
+[submodule "generic-pid"]
+	path = generic-pid
+	url = git@github.com:hirobon1690/generic-pid.git
