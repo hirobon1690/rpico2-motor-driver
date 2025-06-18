@@ -1,66 +1,104 @@
 #include <stdio.h>
-#include "pico/stdlib.h"
+#include "adc.h"
 #include "hardware/pio.h"
 #include "hardware/uart.h"
+#include "motor.h"
+#include "pico/stdlib.h"
+#include "pwm.h"
+#include "qenc.h"
+#include "servo.h"
 
-#include "blink.pio.h"
+Pwm pwm[4] = {Pwm(20, 50000), Pwm(11, 50000), Pwm(12, 50000), Pwm(21, 50000)};
+Servo servo(2);
+Qenc enc[2] = {Qenc(6), Qenc(3)};
 
-void blink_pin_forever(PIO pio, uint sm, uint offset, uint pin, uint freq) {
-    blink_program_init(pio, sm, offset, pin);
-    pio_sm_set_enabled(pio, sm, true);
+Motor motor[2] = {Motor(pwm[1], pwm[0], enc[0]), Motor(pwm[3], pwm[2], enc[1])};
+Adc adc[3] = {Adc(26), Adc(27), Adc(28)};
 
-    printf("Blinking pin %d at %d Hz\n", pin, freq);
+char buf[255];
 
-    // PIO counter program takes 3 more cycles in total than we pass as
-    // input (wait for n + 1; mov; jmp)
-    pio->txf[sm] = (125000000 / (2 * freq)) - 3;
+void readline(char* buf) {
+    int i = 0;
+    while (1) {
+        char c = getchar();
+        if (c == '\n') {
+            break;
+        }
+        buf[i++] = c;
+    }
+    buf[i] = 0;
 }
 
-// UART defines
-// By default the stdout UART is `uart0`, so we will use the second one
-#define UART_ID uart1
-#define BAUD_RATE 115200
+bool timer_cb(repeating_timer_t* rt) {
+    motor[0].timer_cb();
+    motor[1].timer_cb();
+    return true;
+}
 
-// Use pins 4 and 5 for UART1
-// Pins can be changed, see the GPIO function select table in the datasheet for information on GPIO assignments
-#define UART_TX_PIN 4
-#define UART_RX_PIN 5
+bool timer_cb_pos(repeating_timer_t* rt) {
+    motor[0].timer_cb_pos();
+    motor[1].timer_cb_pos();
+    return true;
+}
 
+void initTimer() {
+    static repeating_timer_t timer;
+    static repeating_timer_t timer1;
+    add_repeating_timer_ms(-10, timer_cb, NULL, &timer);
+    add_repeating_timer_ms(-100, timer_cb_pos, NULL, &timer1);
+}
 
-
-int main()
-{
+void setup() {
     stdio_init_all();
+    gpio_init(20);
+    gpio_init(11);
+    gpio_init(12);
+    gpio_init(21);
 
-    // PIO Blinking example
-    PIO pio = pio0;
-    uint offset = pio_add_program(pio, &blink_program);
-    printf("Loaded program at %d\n", offset);
-    
-    #ifdef PICO_DEFAULT_LED_PIN
-    blink_pin_forever(pio, 0, offset, PICO_DEFAULT_LED_PIN, 3);
-    #else
-    blink_pin_forever(pio, 0, offset, 6, 3);
-    #endif
-    // For more pio examples see https://github.com/raspberrypi/pico-examples/tree/master/pio
+    motor[0].init();
+    motor[1].init();
 
-    // Set up our UART
-    uart_init(UART_ID, BAUD_RATE);
-    // Set the TX and RX pins by using the function select on the GPIO
-    // Set datasheet for more information on function select
-    gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
-    gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
-    
-    // Use some the various UART functions to send out data
-    // In a default system, printf will also output via the default UART
-    
-    // Send out a string, with CR/LF conversions
-    uart_puts(UART_ID, " Hello, UART!\n");
-    
-    // For more examples of UART use see https://github.com/raspberrypi/pico-examples/tree/master/uart
+    motor[0].setVelGain(1, 0.0, 0.09);
+    motor[0].setPosGain(2.5, 0.0, 0.09);
+    motor[1].setVelGain(1, 0.0, 0.09);
+    motor[1].setPosGain(2.5, 0.0, 0.09);
+    servo.init();
+    initTimer();
+}
 
+int main() {
+    setup();
+   
     while (true) {
-        printf("Hello, world!\n");
-        sleep_ms(1000);
+        readline(buf);
+        int id = 0;
+        int mode = 0;
+        double val = 0;
+        sscanf(buf, "%d %d %lf", &id, &mode, &val);
+        printf("id: %d mode: %d val: %f\n", id, mode, val);
+        switch (id) {
+            case 0:
+                if (!mode) {
+                    motor[0].disablePosPid();
+                    motor[0].setVel(val);
+                } else {
+                    motor[0].resetPos();
+                    motor[0].setPos(val);
+                }
+                break;
+            case 1:
+                if (!mode) {
+                    motor[1].disablePosPid();
+                    motor[1].setVel(val);
+                } else {
+                    motor[1].resetPos();
+                    motor[1].setPos(val);
+                }
+                break;
+            case 2:
+                // servo.write((int)val);
+                break;
+        }
+        sleep_ms(1);
     }
 }
