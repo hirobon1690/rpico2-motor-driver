@@ -52,8 +52,8 @@ pico_set_program_version(rpico2-motor-driver "0.1")
 pico_generate_pio_header(rpico2-motor-driver ${CMAKE_CURRENT_LIST_DIR}/blink.pio)
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(rpico2-motor-driver 0)
-pico_enable_stdio_usb(rpico2-motor-driver 1)
+pico_enable_stdio_uart(rpico2-motor-driver 1)
+pico_enable_stdio_usb(rpico2-motor-driver 0)
 
 # Add the standard library to the build
 target_link_libraries(rpico2-motor-driver
@@ -78,6 +78,8 @@ target_link_libraries(rpico2-motor-driver
         hardware_pwm
         hardware_adc
         hardware_gpio
+        hardware_uart
+        pico_stdio_uart
         )
 
 pico_add_extra_outputs(rpico2-motor-driver)

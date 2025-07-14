@@ -4,6 +4,7 @@
 #include "hardware/uart.h"
 #include "motor.h"
 #include "pico/stdlib.h"
+#include "pico/stdio_uart.h"
 #include "pwm.h"
 #include "qenc.h"
 #include "servo.h"
@@ -49,7 +50,18 @@ void initTimer() {
 }
 
 void setup() {
-    stdio_init_all();
+    // stdio_init_all();
+
+        // UART0を初期化（ボーレート115200）
+    uart_init(uart0, 115200);
+    
+    // UART0のピンを設定（GP0 = TX, GP1 = RX）
+    gpio_set_function(0, GPIO_FUNC_UART);
+    gpio_set_function(1, GPIO_FUNC_UART);
+    
+    // UARTをstdioとして設定
+    stdio_uart_init_full(uart0, 115200, 0, 1);
+    
     gpio_init(20);
     gpio_init(11);
     gpio_init(12);
@@ -96,7 +108,7 @@ int main() {
                 }
                 break;
             case 2:
-                // servo.write((int)val);
+                servo.write((int)val);
                 break;
         }
         sleep_ms(1);
